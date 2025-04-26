@@ -25,10 +25,8 @@ def generate_triangle_free_graph(n):
 n = 5
 graph = generate_triangle_free_graph(n)
 vertices = list(range(3*n))
-# num_v = (3*n)*(3*n - 1)//2 - 3*n
 
 num_v = 6 * math.ceil(log2(n))
-print(num_v)
 
 model = LpProblem("Clique_Covering", LpMinimize)
 
@@ -39,7 +37,9 @@ model += lpSum(y[k] for k in range(num_v))
 
 z = LpVariable.dicts("z", (vertices, vertices, range(num_v)), cat="Binary")
 
-#model += x[0][0] == 1
+
+for i in range(0, len(vertices), 3):
+    model += (x[i][0] == 1)
 
 for i in vertices:
     for j in vertices:
@@ -48,12 +48,14 @@ for i in vertices:
                 model += z[i][j][k] <= x[i][k]
                 model += z[i][j][k] <= x[j][k]
                 model += (z[i][j][k] >= x[i][k] + x[j][k] - 1)
+if len(vertices) > 5:
+    model += z[0][3][0] == 1
+    model += z[0][4][1] == 1
+    model += z[0][5][2] == 1
 
 for k in range(num_v):
-    for u in vertices:
-        for v in vertices:
-            if u < v and v not in graph[u]:
-                model += z[u][v][k] == 0 #x[u][k] + x[v][k] <= 1 #z[u][v][k] == 0
+    for i in range(0, len(vertices), 3):
+        model += x[i][k] + x[i+1][k] + x[i+2][k] <= 1
 
 for i in vertices:
     for k in range(num_v):
@@ -101,8 +103,3 @@ if model.status == 1:
 
 else:
     print("No solution found.")
-
-
-# checker
-# первую клику
-# на git
