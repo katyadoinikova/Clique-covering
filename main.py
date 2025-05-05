@@ -1,6 +1,7 @@
 import math
 from math import log2
 
+import pulp
 from pulp import LpProblem, LpVariable, LpMinimize, lpSum
 
 import networkx as nx
@@ -26,49 +27,80 @@ n = 5
 graph = generate_triangle_free_graph(n)
 vertices = list(range(3*n))
 
-num_v = 6 * math.ceil(log2(n))
+if n <= 2:
+    num_v = 9
+else:
+    num_v = 6 * math.ceil(log2(n))
 
 model = LpProblem("Clique_Covering", LpMinimize)
 
-x = LpVariable.dicts("x", (vertices, range(num_v)), cat="Binary")
+vert = LpVariable.dicts("x", (vertices, range(num_v)), cat="Binary")
 y = LpVariable.dicts("y", range(num_v), cat="Binary")
 
-model += lpSum(y[k] for k in range(num_v))
+model += 0
+model += lpSum(y[k] for k in range(num_v)) == 8
 
-z = LpVariable.dicts("z", (vertices, vertices, range(num_v)), cat="Binary")
+edges = LpVariable.dicts("z", (vertices, vertices, range(num_v)), cat="Binary")
+
+m = LpVariable.dicts("m", (range(n), range(num_v)), cat="Binary")
+
+s = LpVariable.dicts("s", (range(n), range(num_v)), cat="Binary")
 
 
 for i in range(0, len(vertices), 3):
-    model += (x[i][0] == 1)
+    model += (vert[i][0] == 1)
+
+for i in range(0, n - 1):
+    for k in range(num_v):
+        model += s[i][k] >= vert[3 * i][k]
+        model += s[i][k] >= vert[3 * i + 1][k]
+        model += s[i][k] >= vert[3 * i + 2][k]
+        model += s[i][k] <= vert[3 * i][k] + vert[3 * i + 1][k] + vert[3 * i + 2][k]
+for i in range(n - 1):
+    lhs = lpSum(2**(num_v - 1 - t) * s[i][t] for t in range(num_v))
+    rhs = lpSum(2**(num_v - 1 - t) * s[i+1][t] for t in range(num_v))
+    model += lhs >= rhs
+
+for i in range(n):
+    for j in range(num_v):
+        model += (m[n][j] <= 1 - vert[i*3][j])
+        for k in range(j):
+            model += (m[n][j] <= vert[i*3][k])
 
 for i in vertices:
     for j in vertices:
         for k in range(num_v):
             if i < j:
-                model += z[i][j][k] <= x[i][k]
-                model += z[i][j][k] <= x[j][k]
-                model += (z[i][j][k] >= x[i][k] + x[j][k] - 1)
+                model += edges[i][j][k] <= vert[i][k]
+                model += edges[i][j][k] <= vert[j][k]
+                model += (edges[i][j][k] >= vert[i][k] + vert[j][k] - 1)
+
+
 if len(vertices) > 5:
-    model += z[0][3][0] == 1
-    model += z[0][4][1] == 1
-    model += z[0][5][2] == 1
+    model += edges[0][3][0] == 1
+    model += edges[0][4][1] == 1
+    model += edges[0][5][2] == 1
 
 for k in range(num_v):
     for i in range(0, len(vertices), 3):
-        model += x[i][k] + x[i+1][k] + x[i+2][k] <= 1
+        model += vert[i][k] + vert[i + 1][k] + vert[i + 2][k] <= 1
+
+for k in range(num_v):
+    for i in range(n):
+        model += vert[i*3 + 2][k] <= 1 - m[i][k]
 
 for i in vertices:
     for k in range(num_v):
-        model += x[i][k] <= y[k]
+        model += vert[i][k] <= y[k]
 
 for i in vertices:
     for j in graph[i]:
         if i < j:
-            model += lpSum(z[i][j][k] for k in range(num_v)) >= 1
+            model += lpSum(edges[i][j][k] for k in range(num_v)) >= 1
 
 
-
-model.solve()
+print(pulp.listSolvers(onlyAvailable=True))
+model.solve(pulp.getSolver('SCIP_PY'))
 
 if model.status == 1:
     print("Solution found:")
@@ -103,3 +135,7 @@ if model.status == 1:
 
 else:
     print("No solution found.")
+
+
+# checker
+
