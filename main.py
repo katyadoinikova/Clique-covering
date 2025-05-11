@@ -4,8 +4,6 @@ from math import log2
 import pulp
 from pulp import LpProblem, LpVariable, LpMinimize, lpSum
 
-import networkx as nx
-
 def check_solution(x):
     for k in range(num_v):
         for i in range(3*n):
@@ -23,7 +21,7 @@ def check_solution(x):
                 assert is_covered
     print("Checked")
 
-n = 6
+n = 5
 vertices = list(range(3*n))
 
 if n <= 2:
@@ -36,7 +34,7 @@ model = LpProblem("Clique_Covering", LpMinimize)
 vert = LpVariable.dicts("x", (vertices, range(num_v)), cat="Binary")
 
 model += 0
-num_v = 13
+num_v = 10
 
 edges = LpVariable.dicts("z", (vertices, vertices, range(num_v)), cat="Binary")
 
@@ -48,11 +46,14 @@ for i in range(0, len(vertices), 3):
     model += (vert[i][0] == 1)
 
 
-for i in range(n):
-    for j in range(num_v):
-        model += (m[i][j] <= 1 - vert[i*3][j])
-        for k in range(j):
-            model += (m[i][j] <= vert[i*3][k])
+# for i in range(n):
+#     for j in range(num_v):
+#         model += m[i][j] <= 1 - vert[i*3][j]
+#         for k in range(j):
+#             model += m[i][j] <= vert[i*3][k]
+
+
+
 
 for i in vertices:
     for j in vertices:
@@ -62,13 +63,22 @@ for i in vertices:
                 model += edges[i][j][k] <= vert[j][k]
                 model += edges[i][j][k] >= vert[i][k] + vert[j][k] - 1
 
-for k in range(num_v - 1):
-    for i in range(n):
-        model += m[i][k] >= m[i][k + 1]
+# for k in range(num_v - 1):
+#     for i in range(n):
+#         model += m[i][k] >= m[i][k + 1]
 
 for k in range(num_v):
     for i in range(0, len(vertices), 3):
         model += vert[i][k] + vert[i + 1][k] + vert[i + 2][k] == 1
+
+for i in range(n):
+    model += lpSum(m[i][k] for k in range(num_v)) == 1
+for i in range(n):
+    for j in range(num_v):
+        model += m[i][j] <= 1 - vert[3*i][j]
+        for k in range(j):
+            model += m[i][j] <= vert[3*i][k]
+        model += m[i][j] >= 1 - vert[3*i][j] - lpSum(1 - vert[3*i][k] for k in range(j))
 
 for k in range(num_v):
     for i in range(n):
@@ -115,3 +125,11 @@ if model.status == 1:
 
 else:
     print("No solution found.")
+
+
+
+
+
+
+
+
